@@ -51,3 +51,63 @@ def test_add_and_list_account_actions_are_mutually_exclusive():
 
     with pytest.raises(SystemExit):
         main.build_parser().parse_args(["--add-account", "--list-accounts"])
+
+
+def test_dry_run_displays_preview_status_without_sync_or_confirmation(
+    monkeypatch, capsys
+):
+    fork = {
+        "full_name": "octocat/demo-fork",
+        "fork": True,
+        "default_branch": "main",
+        "parent": {
+            "full_name": "upstream/demo-fork",
+            "default_branch": "main",
+        },
+    }
+
+    class FakeGitHubClient:
+        def __init__(self):
+            self.session = type("Session", (), {"close": lambda self: None})()
+
+        def get_authenticated_user(self):
+            return {"login": "octocat"}
+
+    github = FakeGitHubClient()
+
+    class FakeAccounts:
+        def get_client(self, username):
+            assert username == "octocat"
+            return github
+
+    class FakeSynchronizer:
+        def __init__(self, client):
+            assert client is github
+
+        def get_forks(self):
+            return [fork]
+
+        def preview_all(self, forks=None):
+            assert forks == [fork]
+            return [{
+                "repository": "octocat/demo-fork",
+                "status": "behind",
+                "message": "2 upstream commit(s) available.",
+            }]
+
+        def sync_all(self, forks=None, dry_run=False):
+            raise AssertionError("dry-run must not enter the sync flow")
+
+    def unexpected_confirmation(*args, **kwargs):
+        raise AssertionError("dry-run must not ask for live-sync confirmation")
+
+    monkeypatch.setattr(main, "AccountManager", FakeAccounts)
+    monkeypatch.setattr(main, "ForkSynchronizer", FakeSynchronizer)
+    monkeypatch.setattr(main, "confirm_synchronization", unexpected_confirmation)
+
+    exit_code = main.main(["--dry-run", "--account", "octocat"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "octocat/demo-fork: behind" in captured.out
+    assert "2 upstream commit(s) available." in captured.out
