@@ -155,7 +155,7 @@ def main(argv=None):
         print(f"Selected {len(forks)} fork repository/repositories.\n")
 
         if args.dry_run:
-            results = synchronizer.sync_all(forks=forks, dry_run=True)
+            results = synchronizer.preview_all(forks=forks)
         else:
             if not confirm_synchronization(forks):
                 print("Synchronization cancelled.")
