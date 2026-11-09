@@ -53,9 +53,7 @@ def test_add_and_list_account_actions_are_mutually_exclusive():
         main.build_parser().parse_args(["--add-account", "--list-accounts"])
 
 
-def test_dry_run_displays_preview_status_without_sync_or_confirmation(
-    monkeypatch, capsys
-):
+def test_dry_run_displays_preview_status_without_sync_or_confirmation(monkeypatch, capsys):
     fork = {
         "full_name": "octocat/demo-fork",
         "fork": True,
